@@ -54,3 +54,8 @@ Notice for Fulfillment, you have the option to either send the intent to a lambd
 And now for a bit of fun! On the top right of the dashboard, click Build. This will initialize your chatbot and allow you to begin testing it. A chat widget should pop up on the right side of the screen. Try it out!
 
 ![alt text](screenshots/step11.png "Building and testing the bot")
+Awesome, our Lex chatbot is almost ready to go. Our next step is to attach a Lambda function to it.
+
+Lambda will simply receive the slots and their values and return them in a way that Lex understands
+
+## Step 2: Deploy a Lambda Function
