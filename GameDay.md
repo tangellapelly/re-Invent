@@ -59,3 +59,125 @@ Awesome, our Lex chatbot is almost ready to go. Our next step is to attach a Lam
 Lambda will simply receive the slots and their values and return them in a way that Lex understands
 
 ## Step 2: Deploy a Lambda Function
+
+In your AWS console, go to Amazon Lambda and select Build a Function from Scratch. In the next screen, you will have the option of building your custom function or selecting a blueprint. The blueprints are great examples and I highly recommend checking them out to enhance your knowledge. For our purposes, Select Author From Scratch and fill out the form with your function name, runtime environment (Node.js 10.x) and select the *create function* button to create the lambda function.
+
+
+![alt text](screenshots/step12.png "creating lambda function")
+
+On this next Screen you will be treated to your lambda function, the designer tool, and some dashboard items for testing and monitoring your function. The following is the lambda function that we wanted to create:
+
+```javascript
+'use strict';
+const axios = require('axios')     
+function close(sessionAttributes, fulfillmentState, message) {
+    return {
+        sessionAttributes,
+        dialogAction: {
+            type: 'Close',
+            fulfillmentState,
+            message,
+        },
+    };
+}
+ 
+// --------------- Events -----------------------
+ 
+async function dispatch(intentRequest, callback) {
+    console.log(`request received for userId=${intentRequest.userId}, intentName=${intentRequest.currentIntent.name}`);
+    const sessionAttributes = intentRequest.sessionAttributes;
+    const slots = intentRequest.currentIntent.slots;
+    const city = slots.city;
+ 
+    if(slots.gpsCodes){
+        
+          const gpsCodes = slots.gpsCodes;
+    const codes = gpsCodes.split(',');
+       // API to get the list of gas stations
+              let gasStation = axios.get(`https://places.demo.api.here.com/places/v1/discover/search?at=${codes[0].trim()},${codes[1].trim()}&q=petrol-station&app_id=MMRyT9PioGx6DeImyPie&app_code=SB7YD1dqPH40vz-lSJE19g`, {}).then((data)=>{
+                 
+                let gasStationNames= data.data.results.items.map((it)=>{
+                    
+                    return ` *${it.title}* is at _${it.vicinity.replace("<br/>"," ")}_`+"\n"
+                })
+                const reducer = (accumulator, currentValue) => accumulator + currentValue;
+
+                callback(close(sessionAttributes, 'Fulfilled',
+                {'contentType': 'PlainText', 'content': `Okay, Here are the list of gas stations ${"\n"}${gasStationNames.reduce(reducer)}`}));
+                
+            }).catch((e)=>{
+        console.log(e)
+    })  
+    } else {
+         // API to convert the address to lat and lng 
+    const res = await axios.get(`https://geocoder.api.here.com/6.2/geocode.json?app_id=MMRyT9PioGx6DeImyPie&app_code=SB7YD1dqPH40vz-lSJE19g&searchtext=${city}`, {}).then((res)=>{
+            let lat = res.data.Response.View[0].Result[0].Location.DisplayPosition.Latitude;
+            let lng = res.data.Response.View[0].Result[0].Location.DisplayPosition.Longitude
+            
+            // API to get the list of gas stations
+              let gasStation = axios.get(`https://places.demo.api.here.com/places/v1/discover/search?at=${lat},${lng}&q=petrol-station&app_id=MMRyT9PioGx6DeImyPie&app_code=SB7YD1dqPH40vz-lSJE19g`, {}).then((data)=>{
+                 
+                let gasStationNames= data.data.results.items.map((it)=>{
+                    
+                    return ` *${it.title}* is at _${it.vicinity.replace("<br/>"," ")}_`+"\n"
+                })
+                const reducer = (accumulator, currentValue) => accumulator + currentValue;
+
+                callback(close(sessionAttributes, 'Fulfilled',
+                {'contentType': 'PlainText', 'content': `Okay, Here are the list of gas stations near by ${city}${"\n"}${gasStationNames.reduce(reducer)}`}));
+                
+            })
+           
+    }).catch((e)=>{
+        console.log(e)
+    })
+   
+   
+    }
+    
+}
+
+
+
+
+// --------------- Main handler -----------------------
+ 
+// Route the incoming request based on intent.
+// The JSON body of the request is provided in the event slot.
+exports.handler = (event, context, callback) => {
+    try {
+        dispatch(event,
+            (response) => {
+                callback(null, response);
+            });
+    } catch (err) {
+        callback(err);
+    }
+};
+```
+
+
+The first time you hit Test, you will be asked to supply a JSON snippet describing what the test input should be.
+
+``` json
+{
+  "messageVersion": "1.0",
+  "invocationSource": "FulfillmentCodeHook",
+  "userId": "user-1",
+  "sessionAttributes": {},
+  "bot": {
+    "name": "HerePlacesBot",
+    "alias": "$LATEST",
+    "version": "$LATEST"
+  },
+  "outputDialogMode": "Text",
+  "currentIntent": {
+    "name": "HerePlacesBot",
+    "slots": {
+      "gpsCodes": "18.000055,79.588165"
+    },
+    "confirmationStatus": "None"
+  }
+}
+```
+
